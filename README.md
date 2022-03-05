@@ -97,9 +97,8 @@ has the following steps:
   FOR all codewords indexed by i FROM 0 to n-1
     if(at error location) dc_i = rc_i + e
     else                  dc_i = rc_i
- ```
-
-
+  ```
+ 
 #### Channel Model:
 The codewords `(c_0, c_1, ..., c_(n-1))` are transmitted over a channel where symbol errors occur independently with probability `Ps`. 
 That is each received symbol `rc_i = c_i + e_i`, where `rc_i`, `c_i`, `e_i` are in `GF(2^m)` and
