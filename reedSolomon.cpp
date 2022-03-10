@@ -1,4 +1,4 @@
-/* 
+/*
  * -----------------------------------------------------------------------------
  * -----                           reedSolomon.cpp                         -----
  * -----                          REED-SOLOMON CODES                       -----
@@ -8,9 +8,9 @@
  *   This is the implementation file for `reedSolomon` encoder/decoder class
  *
  * Assumptions:
- *   - Polynomials are written in vector form, or really an array where 
+ *   - Polynomials are written in vector form, or really an array where
  *     zero-based index i represents the coefficient of x^i.
- *   - The factors read in the array slots are the Galois field elements in 
+ *   - The factors read in the array slots are the Galois field elements in
  *     decimal form, i.e. alpha^i values, where alpha is the primitive element
  *     of a primitive polynomial
  *
@@ -30,34 +30,33 @@
 #include <cmath>
 
 using namespace std;
-#include "primitives.h"     // primitive elements
-#include "reedSolomon.h"    // class declaration
-
+#include "primitives.h"  // primitive elements
+#include "reedSolomon.h" // class declaration
 
 ///////////////////////////////////////////////////////////////////////////
 // Initializers
 ///////////////////////////////////////////////////////////////////////////
 /*
  * gen_gf()
- * Description: 
+ * Description:
  *   Generate the Galois field and update representative arrays `alpha_to` and
  *   `index_of`
- *   
+ *
  *   ## Background on galois field
- *   - The Galois field consists of a set of elements (numbers). The elements 
+ *   - The Galois field consists of a set of elements (numbers). The elements
  *     are based on a primitive element, denoted `alpha`, and take the values:
  *       0, alpha^0, alpha^1, alpha^2, ..., alpha^(N-1)
  *     to form a set of 2^m elements, where N = 2^m -1. The field is then known
  *     as GF(2^m)
- *  
+ *
  *   - In addition to the powers of alpha form, each field element can also be
  *     represented by a polynomial expresion of the form:
  *       a_(m-1)*x^(m-1) + ... + a_1*x + a_0
  *     where the coefficients a_(m-1) to a_0 take the values 0 or 1. Thus we can
  *     describe a field element using the binary number a_(m-1),...,a_1,a_0 and
- *     the 2^m field elements correspond to the 2^m combinations of the m-bit 
+ *     the 2^m field elements correspond to the 2^m combinations of the m-bit
  *     number.
- *   
+ *
  *   - For example, in the Galois field with 16 elements (known as GF(16), m=4),
  *     the polynomial representation is:
  *       a_3*x^3 + a_2*x^2 + a_1*x^1 + a_0*x^0
@@ -66,16 +65,16 @@ using namespace std;
  *
  *   ## Constructing the Galois field
  *   - All non-zero elements of the Galois field can be constructed by using the
- *     fact that the primitive element alpha is a root of the primitive 
- *     polynomial, so that 
+ *     fact that the primitive element alpha is a root of the primitive
+ *     polynomial, so that
  *       p(alpha) = 0
- *   
- *   - Thus for GF(16) with the primitive polynomial [p(x) = x^4 + x + 1] in 
+ *
+ *   - Thus for GF(16) with the primitive polynomial [p(x) = x^4 + x + 1] in
  *     primitives.h, we can say
  *       alpha^4 + alpha + 1 = 0
  *     or
  *       alpha^4 = alpha + 1 (+ and - are the same in a GF; see refernce)
- *   
+ *
  *    - Multiplying by alpha at each stahe and using [alpha+1] to substitute for
  *      alpha^4 and adding the resulting terms can be used to obtain the
  *      complete field as shown in the table below:
@@ -101,25 +100,25 @@ using namespace std;
  *      +------------+---------------------------+-------------+--------------+
  *      If we continue this process beyond alpha^14, we see alpha^15 = alpha^0,
  *      alpha^16 = alpha^1,.... so it's a repeating sequence.
- * 
+ *
  *
  * Assumptions:
  *   alpha_to and index_of arrays have had their memory allocated
- *  
+ *
  * Arguments:
  *   None
  *
  * Return:
  *   None
- * 
+ *
  * Operation:
  *   - This Galois field is represented by the arrays alpha_to and index_of [See
- *     `reedSolomon.h` for more details]. The goal is to populate the array 
+ *     `reedSolomon.h` for more details]. The goal is to populate the array
  *     elements with the binary/decimal representation of the polynomial form of
- *     alpha^0 to alpha^(2^m -2). 
+ *     alpha^0 to alpha^(2^m -2).
  *   - These bounds of 0 to (2^m -2) were chosen because:
  *     + We dont worry about GF element 0; that is always represented as 0
- *     + alpha^(2^m -1) = alpha^0, alpha(2^m) = alpha^1, so at this point it's 
+ *     + alpha^(2^m -1) = alpha^0, alpha(2^m) = alpha^1, so at this point it's
  *       a repeating sequence.
  *   - At the end of it all, it is important to note that for no value i is
  *     alpha^i == 0, so index_of[0] isnt a valid field. Indicate this with -1.
@@ -131,51 +130,50 @@ using namespace std;
  *   May 31, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::gen_gf()
-{   
+void reedSolomon::gen_gf() //指定作用域
+{
     int i, mask;
-    
-    mask = 1 ;
-    alpha_to[m] = 0 ;
-    
-    for (i=0; i<m; i++)
-    { 
-        alpha_to[i] = mask ;
+
+    mask = 1;
+    alpha_to[m] = 0;
+
+    for (i = 0; i < m; i++)
+    {
+        alpha_to[i] = mask;
         index_of[alpha_to[i]] = i;
-        
-        if (p_x[i]!=0)
-            alpha_to[m] ^= mask;
-        
-        mask <<= 1;
+
+        if (p_x[i] != 0)
+            alpha_to[m] ^= mask; //按位异或，0变1或者1变0,通过循环生成alpha_to[m]
+
+        mask <<= 1; //移位操作,相当于乘2,用二进制序列表示
     }
     index_of[alpha_to[m]] = m;
-    mask >>= 1 ;
-    
-    for (i=m+1; i<n; i++)
+    mask >>= 1; // 2^(m-1)
+
+    for (i = m + 1; i < n; i++)
     {
-        if (alpha_to[i-1] >= mask)
-            alpha_to[i] = alpha_to[m] ^ ((alpha_to[i-1]^mask)<<1) ;
+        if (alpha_to[i - 1] >= mask)
+            alpha_to[i] = alpha_to[m] ^ ((alpha_to[i - 1] ^ mask) << 1); //相当于计算alpha^m+alpha*(alpha_to[i-1]-alpha^(m-1))
         else
-            alpha_to[i] = alpha_to[i-1]<<1 ;
-       
-        index_of[alpha_to[i]] = i ;
+            alpha_to[i] = alpha_to[i - 1] << 1;
+
+        index_of[alpha_to[i]] = i;
     }
-    
-    index_of[0] = -1 ;
-  
+
+    index_of[0] = -1;
 }
 
 /*
  * gen_prim_poly()
- * Description: 
- *   Generate the primitive polynomial by setting the primitive array, p_x 
+ * Description:
+ *   Generate the primitive polynomial by setting the primitive array, p_x
  *   [or p(x) really] with an appropriate primitive polynomial of order m.
  *   This info is stored in string form in the array primitive[] (defined in
  *   primitives.h)
  *
  *  ## Background on primitive polynomial
- *  - A Primitive polynomial is a polynomial of degree m which is irreducible. 
- *     It forms part of the process of multiplying two field elements together. 
+ *  - A Primitive polynomial is a polynomial of degree m which is irreducible.
+ *     It forms part of the process of multiplying two field elements together.
  *     For a Galois field of a particular size, there is sometimes a choice of
  *     suitable polynomials. Using a different primitive polynomial from that
  *     specified will produce incorrect results.
@@ -186,7 +184,7 @@ void reedSolomon::gen_gf()
  * Assumptions:
  *   - the primitive[] array has the primitive array of order m at index (m-1)
  *   - p(x) has already been allocated the appropriate memory size
- *  
+ *
  * Arguments:
  *   None
  *
@@ -204,23 +202,23 @@ void reedSolomon::gen_gf()
  */
 void reedSolomon::gen_prim_poly() // create primitive polynomial p(x)
 {
-    string prim_poly_str = primitive[m-1];   // get string version of p(x)
+    string prim_poly_str = primitive[m - 1]; // get string version of p(x)
     string token;                            // each character in string
 
-    for(int i=0; i < size_p; i++)            // set all coeffs. of p(x) to 0
+    for (int i = 0; i < size_p; i++) // set all coeffs. of p(x) to 0
         p_x[i] = 0;
-    
-    stringstream ss(prim_poly_str);          // string contains only powers of
-    while(getline(ss, token, ' '))           // x with coefficient = 1. Get them
-        p_x[atoi(token.c_str())] = 1;        // and update p(x) accordingly.
+
+    stringstream ss(prim_poly_str);   // string contains only powers of
+    while (getline(ss, token, ' '))   // x with coefficient = 1. Get them
+        p_x[atoi(token.c_str())] = 1; // and update p(x) accordingly.
 }
 
 /*
  * gen_g_poly()
- * Description: 
+ * Description:
  *   Create the generator polynomial which is really just
  *   g(x) = (x + a)(x + a^2)...(x+a^2t)
- *   this makes g(x) a polynomial of order 2t (size_g is 2t+1 coz of constant) 
+ *   this makes g(x) a polynomial of order 2t (size_g is 2t+1 coz of constant)
  *
  *   ## Background on (code) generator polynomial
  *   - An (n, k) Reed-Solomon code is constructed by forming the code generator
@@ -236,17 +234,17 @@ void reedSolomon::gen_prim_poly() // create primitive polynomial p(x)
  *       g(x) = g_0 +  g_1*x + g_2*x^2 + ... + g_(2t-1)*x^(2t-1) + x^2t
  *     so the array representation of g(x) will need to account for 2t coeffs
  *     + 1 constant, so size of g(x) array ,`size_g`, is 2t + 1
- *  
+ *
  *
  * Assumptions:
  *   g(x) has already been allocated the appropriate memory size of 2t + 1
- *  
+ *
  * Arguments:
  *   None
  *
  * Return:
  *   None
- * 
+ *
  * Operation:
  *   - clear out g(x)
  *   - Start off with g(x) = (x+alpha)
@@ -254,7 +252,7 @@ void reedSolomon::gen_prim_poly() // create primitive polynomial p(x)
  *     2t (Note 2t == size_g-1)
  *     + So g(x) = x*g(x) + B*g(x), where B = alpha^i
  *     + x*g(x) and B*g(x) will be computed separately.
- *     + x*g(x): 
+ *     + x*g(x):
  *       ++ will never have a constant term so set coefficient of x^0 to 0
  *       ++ all other coefficients in g(x) are bumped up to one high power of x
  *     + B*g(x), where B=alpha^i:
@@ -265,7 +263,7 @@ void reedSolomon::gen_prim_poly() // create primitive polynomial p(x)
  *              == alpha^((index_of(coefficient) + i) % n)
  *     + Finally perform x*g(x) + B*g(x) keeping in mind that addition is binary
  *       XOR
- *   
+ *
  *
  * Revision History
  *   May 31, 2011    Nnoduka Eruchalu    Initial Revision
@@ -274,51 +272,49 @@ void reedSolomon::gen_prim_poly() // create primitive polynomial p(x)
 void reedSolomon::gen_g_poly() // create the generator polynomial g(x)
 {
     int i, j;
-    int *xg_x = new int[size_g]; 
+    int *xg_x = new int[size_g];
     int *Bg_x = new int[size_g];
 
     // clear out g(x) by initializing all slots to 0
-    for(i =0; i < size_g; i++)
+    for (i = 0; i < size_g; i++)
         g_x[i] = 0;
 
     // start off with g(x) = (x + alpha)
-    g_x[0] = alpha_to[1]; 
+    g_x[0] = alpha_to[1];
     g_x[1] = 1;
-    
-    
+
     // consecutively multiply g(x) with (x+alpha^i) where i goes from 2 to 2t
     // take advantage of fact that 2t == size_g-1
-    for(i = 2; i < size_g; i++)
-    {   
+    for (i = 2; i < size_g; i++)
+    {
         // g(x)  = g(x)*(x+B) = x*g(x) + B*g(x),  where B = alpha^i
-        
-        // first compute x*g(x) 
-        xg_x[0] = 0;                       // xg(x) doesn't have a constant term
-        for(int k = size_g-1; k >= 1; k--) // all other coefficients are bumped
-            xg_x[k] = g_x[k-1];            // up one level
-        
+
+        // first compute x*g(x)
+        xg_x[0] = 0;                          // xg(x) doesn't have a constant term
+        for (int k = size_g - 1; k >= 1; k--) // all other coefficients are bumped
+            xg_x[k] = g_x[k - 1];             // up one level
+
         // then compute B*g(x)
-        for(int k = 0; k < size_g; k++)   
-            Bg_x[k] = (g_x[k] ?  alpha_to[(index_of[g_x[k]] + i)%n] : 0);
-       
+        for (int k = 0; k < size_g; k++)
+            Bg_x[k] = (g_x[k] ? alpha_to[(index_of[g_x[k]] + i) % n] : 0); //条件表达式，条件为真时取左，条件为假时取右
+
         // finally add both results: g(x) = x*g(x) + B*g(x) using binary XOR
         // between corresponding coefficients.
-        for(j = size_g - 1; j >= 0; j--) 
-            g_x[j] = xg_x[j] ^ Bg_x[j];  
+        for (j = size_g - 1; j >= 0; j--)
+            g_x[j] = xg_x[j] ^ Bg_x[j]; //按位运算相当于元素相加
     }
-    
+
     // deallocate temporary memory
     delete[] xg_x;
     delete[] Bg_x;
 }
 
-
 /*
  * update_params()
- * Description: 
+ * Description:
  *     Initalizae the instance variables and arrays representing multiple
  *     polynomials and the Galois Field(2^m) elements.
- *     
+ *
  *     - This takes into account the assumptions of gen_gf(), gen_prim_poly(),
  *       gen_g_poly() and as such initializes p(x), g(x), alpha_to[], index_of[]
  *
@@ -327,7 +323,7 @@ void reedSolomon::gen_g_poly() // create the generator polynomial g(x)
  *
  * Assumptions
  *     -Assumes m and t have already been setup
- *  
+ *
  * Arguments:
  *     None
  *
@@ -350,38 +346,37 @@ void reedSolomon::gen_g_poly() // create the generator polynomial g(x)
  */
 void reedSolomon::update_params()
 {
-    n = pow(2,m) - 1;         // compute n and k
-    k = n- 2*t;
-    detect_error = false;     // start in state of no transmission error
-    
-                              // polynomial's size = its order +1 (for constant)
-    size_g = 2*t + 1;         // g(x) is order 2t; see gen_g_poly();
-    size_p = m +1;            // p(x) is order m; see gen_prim_poly()
-    size_s = 2*t;             // s(x) is order (2t-1): see get_syndromes()
+    n = pow(2, m) - 1; // compute n and k
+    k = n - 2 * t;
+    detect_error = false; // start in state of no transmission error
+
+    // polynomial's size = its order +1 (for constant)
+    size_g = 2 * t + 1; // g(x) is order 2t; see gen_g_poly();
+    size_p = m + 1;     // p(x) is order m; see gen_prim_poly()
+    size_s = 2 * t;     // s(x) is order (2t-1): see get_syndromes()
     g_x = new int[size_g];
     p_x = new int[size_p];
     s_x = new int[size_s];
-    m_x = new int[n];         // should be of size k, but n makes algo easier.
+    m_x = new int[n]; // should be of size k, but n makes algo easier.
     c_x = new int[n];
     rc_x = new int[n];
     dc_x = new int[n];
-    alpha_to = new int[n+1];  // allocate memory for galois field representation
-    index_of = new int[n+1];  // arrays
-    
-    gen_prim_poly();   // generate primitive polynomial
-    gen_gf();          // update alpha_to and index_to -- they represent the GF
-    gen_g_poly();      // now can create generator polynomial
-}
+    alpha_to = new int[n + 1]; // allocate memory for galois field representation
+    index_of = new int[n + 1]; // arrays
 
+    gen_prim_poly(); // generate primitive polynomial
+    gen_gf();        // update alpha_to and index_to -- they represent the GF
+    gen_g_poly();    // now can create generator polynomial
+}
 
 /*
  * reedSolomon() -- default constructor
- * Description: 
+ * Description:
  *   Default constructor that initializes object with m=4 and t=3
  *
  * Assumptions:
  *   None
- *  
+ *
  * Arguments:
  *   None
  *
@@ -403,15 +398,14 @@ reedSolomon::reedSolomon() // default constructor
     update_params();
 }
 
-
 /*
  * reedSolomon(int mm, int tt) -- more useful constructor with 2 arguments
- * Description: 
+ * Description:
  *   Constructor that initializes object with m and t value arguments.
  *
  * Assumptions:
  *   None
- *  
+ *
  * Arguments:
  *   mm - integer value representing the reedSolomon object's m value
  *   tt - integer value representing the reedSolomon object's t value
@@ -434,15 +428,14 @@ reedSolomon::reedSolomon(int mm, int tt) // more useful constructor
     update_params();
 }
 
-
 /*
  * ~reedSolomon() -- destructor
- * Description: 
+ * Description:
  *   Delete any memory allocated by the constructor
  *
  * Assumptions:
  *   None
- *  
+ *
  * Arguments:
  *   None
  *
@@ -456,30 +449,28 @@ reedSolomon::reedSolomon(int mm, int tt) // more useful constructor
  *   May 31, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-reedSolomon::~reedSolomon()  // destructor
+reedSolomon::~reedSolomon() // destructor
 {
-    delete [] g_x;
-    delete [] p_x;
-    delete [] m_x;
-    delete [] c_x;
-    delete [] rc_x;
-    delete [] dc_x;
-    delete [] alpha_to;
-    delete [] index_of;
+    delete[] g_x;
+    delete[] p_x;
+    delete[] m_x;
+    delete[] c_x;
+    delete[] rc_x;
+    delete[] dc_x;
+    delete[] alpha_to;
+    delete[] index_of;
 }
-
-
 
 ///////////////////////////////////////////////////////////////////////////
 // Galios field arithmetic
 ///////////////////////////////////////////////////////////////////////////
 /*
- * doAdd(int * & cc, int *m1, int *m2, int size_n)  
- * Description: 
+ * doAdd(int * & cc, int *m1, int *m2, int size_n)
+ * Description:
  *   cc(x) = m1(x) + m2(x)
- *  
+ *
  * Arguments:
- *   - cc = cc(x); 
+ *   - cc = cc(x);
  *   - m1 = m1(x);
  *   - m2 = m2(x)
  *   - size_n = size of polynomial arrays == (order of cc(x) +1)
@@ -498,20 +489,19 @@ reedSolomon::~reedSolomon()  // destructor
  *   May 31, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::doAdd(int * & cc, int *m1, int *m2, int size_n) 
+void reedSolomon::doAdd(int *&cc, int *m1, int *m2, int size_n)
 {
-    for(int i=0; i<size_n; i++)
+    for (int i = 0; i < size_n; i++)
         cc[i] = m1[i] ^ m2[i];
 }
 
-
 /*
  * doSub(int * &m1, int *m2, int size_n)
- * Description: 
+ * Description:
  *   m1(x) -= m2(x)   or   m1(x) += m2(x)
- *  
+ *
  * Arguments:
- *   - m1 = m1(x); 
+ *   - m1 = m1(x);
  *   - m2 = m2(x)
  *   - size_n = size of polynomial arrays == (order of m1(x) +1)
  *
@@ -529,18 +519,17 @@ void reedSolomon::doAdd(int * & cc, int *m1, int *m2, int size_n)
  *   May 31, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::doSub(int * &m1, int * & m2, int size_n)
+void reedSolomon::doSub(int *&m1, int *&m2, int size_n)
 {
-    for(int i=0; i<size_n; i++)  // m1(x)-= m2(x) <===> m1(x) += m2(x)
+    for (int i = 0; i < size_n; i++) // m1(x)-= m2(x) <===> m1(x) += m2(x)
         m1[i] ^= m2[i];
 }
 
-
 /*
  * mul(int * & res1, int *g1, int fact, int w, int size_res1, int size_g1)
- * Description: 
+ * Description:
  *   res1(x) = g1(x) * (alpha^fact) * x^w
- *  
+ *
  * Arguments:
  *   - res1      = res1(x); g1 = g1(x)
  *   - fact      = index form of GF element (power of alpha) to multiply g1(x)
@@ -558,7 +547,7 @@ void reedSolomon::doSub(int * &m1, int * & m2, int size_n)
  * Operation:
  *   - When this operation is done, the order of res1(x) will be increased by w
  *     to size_g1 + w -1. So zero out all coefficients for variables with powers
- *     higher than that: [size_g1+w, size_res1-1] 
+ *     higher than that: [size_g1+w, size_res1-1]
  *   - Since there is a multiplication by x^w, each term's power of x will be at
  *     least w, so zero out all coefficients for variables of lower powers
  *   - For all other terms with powers of x in the range [w, size_g1+w-1]
@@ -570,29 +559,28 @@ void reedSolomon::doSub(int * &m1, int * & m2, int size_n)
  *   May 31, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::mul(int * & res1, int *g1, int fact, int w, int size_res1,
+void reedSolomon::mul(int *&res1, int *g1, int fact, int w, int size_res1,
                       int size_g1)
 {
     int i;
     // zero out coefficients of terms with higher than possible powers of x
-    for(i = size_res1-1; i >= size_g1+w; i--)
+    for (i = size_res1 - 1; i >= size_g1 + w; i--)
         res1[i] = 0;
-    
-    //  
-    for(i = size_g1-1+w; i >= w; i--)
-        res1[i]= (g1[i-w] ? alpha_to[(index_of[g1[i-w]] + fact)%n]: 0);
-    
+
+    //
+    for (i = size_g1 - 1 + w; i >= w; i--)
+        res1[i] = (g1[i - w] ? alpha_to[(index_of[g1[i - w]] + fact) % n] : 0);
+
     // zero out coefficients of terms with lower than possible powers of x
-    for (i = w-1; i >= 0; i--)
+    for (i = w - 1; i >= 0; i--)
         res1[i] = 0;
 }
 
-
 /*
- * toPower(int * & res, int * mm, int size_mm, int w) 
+ * toPower(int * & res, int * mm, int size_mm, int w)
  * Description:
  *   res(x) = m(x) * x^w
- *  
+ *
  * Arguments:
  *   - res = res(x)
  *   - mm = mm(x)
@@ -615,27 +603,26 @@ void reedSolomon::mul(int * & res1, int *g1, int fact, int w, int size_res1,
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments and stopped
  *                                       allocating result's memory
  */
-void reedSolomon::toPower(int * & res, int * mm, int size_mm, int w)
+void reedSolomon::toPower(int *&res, int *mm, int size_mm, int w)
 {
     int i;
-    
+
     // move coefficients to terms of higher powers by a factor of w
-    for(i = size_mm-1; i >= w; i--)
-        res[i] = mm[i-w];
-    
+    for (i = size_mm - 1; i >= w; i--)
+        res[i] = mm[i - w];
+
     // zero coefficients for terms with too low powers
-    for (i = w-1; i >= 0; i--)
+    for (i = w - 1; i >= 0; i--)
         res[i] = 0;
 }
 
-
 /*
- * doMul(int * & res_x, int * a_x, int * b_x,  int size_res, int size_a, 
+ * doMul(int * & res_x, int * a_x, int * b_x,  int size_res, int size_a,
  *       int size_b)
  *
  * Description:
  *   res(x) = a(x)*b(x)
- *  
+ *
  * Arguments:
  *   - res_x = res(x); a_x = a(x); b_x = b(x)
  *   - size_a = size of array a_x
@@ -650,7 +637,7 @@ void reedSolomon::toPower(int * & res, int * mm, int size_mm, int w)
  *   - size_res >= order_of(a(x)) + order_of(b(x))+1
  *
  * Operation:
- *   - get orders of a(x) and b(x). Note that this isn't simply (size_a-1) and 
+ *   - get orders of a(x) and b(x). Note that this isn't simply (size_a-1) and
  *     (size_b-1) as those values will tell max. possible orders not actuals.
  *   - initialize res(x) by clearing out all coefficiients. This will now be
  *     used as an accumulator
@@ -663,33 +650,33 @@ void reedSolomon::toPower(int * & res, int * mm, int size_mm, int w)
  *   Jun 01, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::doMul(int * & res_x, int * a_x, int * b_x,  int size_res,
+void reedSolomon::doMul(int *&res_x, int *a_x, int *b_x, int size_res,
                         int size_a, int size_b)
 {
     // get orders of a(x) and b(x)
     int order_a = get_order(a_x, size_a);
     int order_b = get_order(b_x, size_b);
-    
+
     // clear out result polynomial to prepare it for accumulation
-    for(int i = 0; i < size_res; i++) res_x[i] = 0;
+    for (int i = 0; i < size_res; i++)
+        res_x[i] = 0;
     // create temporary result polynomial
     int *temp_res = new int[size_res];
-    
-    for(int i=0; i <= order_a; i++) // looping through a(x)'s terms
+
+    for (int i = 0; i <= order_a; i++) // looping through a(x)'s terms
     {
-        if(a_x[i])
+        if (a_x[i])
         {
             // multiply this non-zero term with b(x) and add to res(x)
             int fact = index_of[a_x[i]];
-            mul(temp_res, b_x, fact, i, size_res, order_b+1);
-            doSub(res_x, temp_res, size_res);  // same thing as an add!
+            mul(temp_res, b_x, fact, i, size_res, order_b + 1);
+            doSub(res_x, temp_res, size_res); // same thing as an add!
         }
     }
-    
-    // deallocate temporary result
-    delete [] temp_res;
-}
 
+    // deallocate temporary result
+    delete[] temp_res;
+}
 
 /*
  * doDiv(int * & quot_x, int * & rmd_x, int * a_x, int * b_x, int size)
@@ -697,9 +684,9 @@ void reedSolomon::doMul(int * & res_x, int * a_x, int * b_x,  int size_res,
  * Description:
  *   quot(x) = a(x) / b(x)
  *   rmd(x)  = a(x) % b(x)
- *  
+ *
  * Arguments:
- *   - quot_x = quot(x); 
+ *   - quot_x = quot(x);
  *   - a_x = a(x): dividend (numerator)
  *   - b_x = b(x): divisor (denominator)
  *   - size = size of all arrays
@@ -714,7 +701,7 @@ void reedSolomon::doMul(int * & res_x, int * a_x, int * b_x,  int size_res,
  * Operation:
  *   - initialize quotient and remainder, quot(x) = 0, rmd(x) = a(x)
  *   - get highest powers (actual orders) of a(x) and b(x).
- *   - if order[a(x)] > order[b(x)] then done, else proceed
+ *   - if order[a(x)] < order[b(x)] then done, else proceed
  *   - while order[b(x)] stil <= order[rmd(x)] keep performing this loop:
  *     + get coefficients of highest order terms of rmd(x) and b(x). Get these
  *       in GF index forms.
@@ -728,60 +715,58 @@ void reedSolomon::doMul(int * & res_x, int * a_x, int * b_x,  int size_res,
  *     + subtract the product of the added quotient term and b(x) from remainder
  *       ++ temp(x) = b(x) * alpha^`fact` * x^(order[rmd(x)] - order[b(x)]])
  *       ++ rmd(x) -= temp(x)
- 
+
  *
  * Revision History
  *   Jun 01, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::doDiv(int * & quot_x, int * & rmd_x, int * a_x, int * b_x, 
+void reedSolomon::doDiv(int *&quot_x, int *&rmd_x, int *a_x, int *b_x,
                         int size)
 {
-    for(int i = 0; i < size; i++)  // initialize quotient and remainder;
+    for (int i = 0; i < size; i++) // initialize quotient and remainder;
     {
         quot_x[i] = 0;
         rmd_x[i] = a_x[i];
     }
-    
+
     int order_b = get_order(b_x, size);
     int order_a = get_order(a_x, size);
-    
-    if(order_a < order_b)  // if order(a(x)) < order(b(x)), done
+
+    if (order_a < order_b) // if order(a(x)) < order(b(x)), done
         return;
-    
+
     int coeff_b = index_of[b_x[order_b]]; // coefficient of highest order term
                                           // of b_x = alpha^coeff_b
-    int * temp = new int[size];
-    while(order_b <= get_order(rmd_x, size)) // loop through dividend
+    int *temp = new int[size];
+    while (order_b <= get_order(rmd_x, size)) // loop through dividend
     {
         // get coefficients of highest order terms of rmd(x) and b(x)
         // and divide both coefficients
         int w = get_order(rmd_x, size); // clearly mod[w] != 0
         int fact = index_of[rmd_x[w]];  // so the value here is a^fact
-        fact += n - coeff_b;           
-        fact %= n;    
-        
-        // add result of coefficient division as coefficient of a new quotient 
+        fact += n - coeff_b;
+        fact %= n;
+
+        // add result of coefficient division as coefficient of a new quotient
         // term. This new term's variable's power will be:
         //   order[rmd(x)] - order[b(x)]]
-        quot_x[w-order_b] = alpha_to[fact];
-        
+        quot_x[w - order_b] = alpha_to[fact];
+
         // subtract the product of the added quot. term and b(x) from remainder
-        mul(temp, b_x, fact, w-order_b, size, order_b+1);
-        doSub(rmd_x, temp, size); 
+        mul(temp, b_x, fact, w - order_b, size, order_b + 1);
+        doSub(rmd_x, temp, size);
     }
 
-    delete [] temp;
+    delete[] temp;
 }
-
-
 
 ///////////////////////////////////////////////////////////////////////////
 // Miscellaneous routines
 ///////////////////////////////////////////////////////////////////////////
 /*
  * print_poly(int *pp_x, int size_pp)
- * Description: 
+ * Description:
  *   print the polynomial in the Galois Field GF(2^m)
  *
  * Assumptions:
@@ -789,7 +774,7 @@ void reedSolomon::doDiv(int * & quot_x, int * & rmd_x, int * a_x, int * b_x,
  *     corresponding to x^i
  *   - the coefficients stored in the polynomial array slots are the decimal
  *     forms of the Galois field elements (alpha^j) values
- *  
+ *
  * Arguments:
  *   pp_x = integer array representing polynomial to be printed pp(x)
  *   size_pp = size of pp(x) == (order of pp(x) +1)
@@ -801,7 +786,7 @@ void reedSolomon::doDiv(int * & quot_x, int * & rmd_x, int * a_x, int * b_x,
  *   Loop through all coefficients of the polynomial:
  *   - Only consider terms with non-zero coefficients.
  *   - Get index form of GF element, save that as `pow`
- *   - Print all coefficients in a^pow form, except special case of pow==1. 
+ *   - Print all coefficients in a^pow form, except special case of pow==1.
  *     Print that as "a"
  *   - Print "x^(power of variables) + " for all variables.
  *
@@ -811,31 +796,34 @@ void reedSolomon::doDiv(int * & quot_x, int * & rmd_x, int * a_x, int * b_x,
  */
 void reedSolomon::print_poly(int *pp_x, int size_pp)
 {
-    for(int i = size_pp-1; i>= 0; i-- )    // loop through all terms of pp(x)
+    for (int i = size_pp - 1; i >= 0; i--) // loop through all terms of pp(x)
     {
-        if(pp_x[i])                        // only consider non-zero coeffs.
+        if (pp_x[i]) // only consider non-zero coeffs.
         {
-            int pow = index_of[pp_x[i]];   // this coeff. is really alpha^pow
-            if(pow == 0) cout << "1";      // so print it as such, but note
-            else if(pow == 1)  cout << "a";// that "a" is neater than "a^1"
-            else if (pow > 1) cout << "a^" << pow;
+            int pow = index_of[pp_x[i]]; // this coeff. is really alpha^pow
+            if (pow == 0)
+                cout << "1"; // so print it as such, but note
+            else if (pow == 1)
+                cout << "a"; // that "a" is neater than "a^1"
+            else if (pow > 1)
+                cout << "a^" << pow;
 
-            if(i > 0) cout << "x^" << i<<" + ";// print x for non-constant terms
+            if (i > 0)
+                cout << "x^" << i << " + "; // print x for non-constant terms
         }
     }
     cout << endl;
 }
 
-
 /*
  * print_params()
- * Description: 
+ * Description:
  *   print the properties of the reed Solomon object, including its
  *   many polynomials and the Galois Field info
  *
  * Assumptions:
  *   None
- *  
+ *
  * Arguments:
  *   None
  *
@@ -854,44 +842,51 @@ void reedSolomon::print_poly(int *pp_x, int size_pp)
 void reedSolomon::print_params()
 {
     // print out m,t,n,k values
-    cout <<  "m: " << m
+    cout << "m: " << m
          << "\tt: " << t
          << "\tn: " << n
          << "\tk: " << k
          << endl;
-    
+
     // print out table resulting from alpha_to[]
-    cout << "field elements for GF(" << (n+1);
+    cout << "field elements for GF(" << (n + 1);
     cout << "): index form -> decimal form" << endl;
     cout << "index form\tdecimal form" << endl;
-    for(int i=0; i<n; i++)
-      cout << "a^" << i <<"\t\t" << alpha_to[i] << endl;
-    
+    for (int i = 0; i < n; i++)
+        cout << "a^" << i << "\t\t" << alpha_to[i] << endl;
+
     // print out table resulting from index_of[]
     cout << endl;
-    cout << "field elements for GF(" << (n+1);
+    cout << "field elements for GF(" << (n + 1);
     cout << "): decimal form -> index form" << endl;
     cout << "decimal form\tindex form" << endl;
-    for(int i=1; i<=n; i++)
-      cout << i <<"\t\t" << "a^" << index_of[i] << endl;
-    
-    // print polynomials
-    cout << "p(x):  ";  print_poly(p_x, size_p);
-    cout << "g(x):  ";  print_poly(g_x, size_g);
-    cout << "m(x):  ";  print_poly(m_x, n);
-    cout << "c(x):  ";  print_poly(c_x, n);
-    cout << "rc(x): ";  print_poly(rc_x, n);
-    cout << "s(x):  ";  print_poly(s_x, size_s);
-    cout << "dc(x):  "; print_poly(dc_x, n);
-}
+    for (int i = 1; i <= n; i++)
+        cout << i << "\t\t"
+             << "a^" << index_of[i] << endl;
 
+    // print polynomials
+    cout << "p(x):  ";
+    print_poly(p_x, size_p);
+    cout << "g(x):  ";
+    print_poly(g_x, size_g);
+    cout << "m(x):  ";
+    print_poly(m_x, n);
+    cout << "c(x):  ";
+    print_poly(c_x, n);
+    cout << "rc(x): ";
+    print_poly(rc_x, n);
+    cout << "s(x):  ";
+    print_poly(s_x, size_s);
+    cout << "dc(x):  ";
+    print_poly(dc_x, n);
+}
 
 /*
  * get_order(int *pp_x, int size_pp)
- * Description: 
+ * Description:
  *   Get the order of the given polynomial pp(x). Note that the order
  *   of a polynomial is the highest power of x with a non-zero coefficient
- *  
+ *
  * Arguments:
  *   pp_x = integer array representing polynomial of interest
  *   size_pp = size of pp(x) == (order of pp(x) +1)
@@ -900,12 +895,12 @@ void reedSolomon::print_params()
  *   (int) order of polynomial
  *
  * Assumptions:
- *   - Polynomials are written in vector form, or really an array where 
+ *   - Polynomials are written in vector form, or really an array where
  *     zero-based index i represents the coefficient of x^i.
  *
  * Operation:
- *   loop through polynomial's terms starting from highest possible power term. 
- *    Stop on coming across a non-zero coefficient and return the index. 
+ *   loop through polynomial's terms starting from highest possible power term.
+ *    Stop on coming across a non-zero coefficient and return the index.
  *
  * Revision History
  *   May 31, 2011    Nnoduka Eruchalu    Initial Revision
@@ -914,19 +909,19 @@ void reedSolomon::print_params()
 int reedSolomon::get_order(int *pp_x, int size_pp)
 {
     int i;
-    for(i = size_pp-1; i>= 0; i--)
+    for (i = size_pp - 1; i >= 0; i--)
     {
-        if(pp_x[i] != 0) break;
+        if (pp_x[i] != 0)
+            break;
     }
     return i;
 }
-
 
 /*
  * copy_arr(int * & dst,int * src, int size)
  * Description:
  *   dst[] = src; Copy contents of src INTO dst
- *  
+ *
  * Arguments:
  *   dst = destination array
  *   src = source array
@@ -946,13 +941,11 @@ int reedSolomon::get_order(int *pp_x, int size_pp)
  *   Jun 01, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::copy_arr(int * & dst,int * src, int size)
+void reedSolomon::copy_arr(int *&dst, int *src, int size)
 {
-    for(int i =0; i< size; i++)
+    for (int i = 0; i < size; i++)
         dst[i] = src[i];
 }
-
-
 
 ///////////////////////////////////////////////////////////////////////////
 // Reed-Solomon encoding/decoding methods
@@ -973,12 +966,12 @@ void reedSolomon::copy_arr(int * & dst,int * src, int size)
  * Assumptions:
  *   - m(x) is an array of size n, but only first k (n>k) slots are used for
  *    polynomial m(x)
- * 
+ *
  * Operation:
  *   - loop through first k slots and randomly generate decimal form GF(2^m)
  *     elements
  *   - zero out
- *  
+ *
  * Revision History
  *   May 31, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
@@ -986,24 +979,23 @@ void reedSolomon::copy_arr(int * & dst,int * src, int size)
 void reedSolomon::gen_rand_msg()
 {
     // populate first k slots with random GF(2^m) elements
-    int i, mod = pow(2,m);
-    for(i =0; i<k; i++)
+    int i, mod = pow(2, m);
+    for (i = 0; i < k; i++)
         m_x[i] = rand() % mod;
     // zero-out unused slots.
-    for(i = k; i < n; i++)
+    for (i = k; i < n; i++)
         m_x[i] = 0;
 }
-
 
 /*
  * encode()
  * Description:
  *   Do a reed solomon decoding of message vector m(x) using this formula:
  *   c(x) = m(x) * x^(n-k)   +   [m(x) * x^(n-k)] % g(x)
- *   
+ *
  *   Clear out detect error flag
- *   
- *   Note r(x) = [m(x) * x^(n-k)] % g(x) ensures that encoded message 
+ *
+ *   Note r(x) = [m(x) * x^(n-k)] % g(x) ensures that encoded message
  *   polynomial, c(x) is always divisible by the generator polynomial, g(x),
  *   without a remainder.
  *
@@ -1034,40 +1026,39 @@ void reedSolomon::gen_rand_msg()
  */
 void reedSolomon::encode()
 {
-    int *m_withMod = new int[n];     // m_withMod = [m(x) * x^(n-k)] % g(x)
-    int *m_toPow = new int[n];       // m_toPow = m(x)*x^(n-k)
-    int *m_withDiv = new int[n];     // temp array to hold doDiv()'s quotient
-    int *mg_x = new int[n];          // need a version of g(x) of size n > k
-    
-    toPower(m_toPow, m_x, n, n-k);   
-    
-    // generae new version of g(x) as required by doDiv()
-    for(int i =0; i<size_g; i++) 
+    int *m_withMod = new int[n]; // m_withMod = [m(x) * x^(n-k)] % g(x)
+    int *m_toPow = new int[n];   // m_toPow = m(x)*x^(n-k)
+    int *m_withDiv = new int[n]; // temp array to hold doDiv()'s quotient
+    int *mg_x = new int[n];      // need a version of g(x) of size n > k
+
+    toPower(m_toPow, m_x, n, n - k);
+
+    // generate new version of g(x) as required by doDiv()
+    for (int i = 0; i < size_g; i++)
         mg_x[i] = g_x[i];
-    for(int i=size_g; i<n; i++)
+    for (int i = size_g; i < n; i++)
         mg_x[i] = 0;
-    
+
     doDiv(m_withDiv, m_withMod, m_toPow, mg_x, n);
-    
+
     // finally create code word.
     doAdd(c_x, m_toPow, m_withMod, n);
-    
+
     // no error detected yet
     detect_error = false;
-    
-    delete [] m_toPow;               // cleanup
-    delete [] m_withMod;
-    delete [] m_withDiv;
-    delete [] mg_x;
-}
 
+    delete[] m_toPow; // cleanup
+    delete[] m_withMod;
+    delete[] m_withDiv;
+    delete[] mg_x;
+}
 
 /*
  * sim_channel()
  * Description:
  *   Pass encoded codeword c(x) through the channel and generate the
  *   received codeword rc(x) with at most t errors
- *  
+ *
  * Arguments:
  *   None
  *
@@ -1089,11 +1080,11 @@ void reedSolomon::encode()
  */
 void reedSolomon::sim_channel()
 {
-    for(int i=0; i<n;i++)  // first copy entire codeword
+    for (int i = 0; i < n; i++) // first copy entire codeword
         rc_x[i] = c_x[i];
-    
-    for(int i=0; i<t; i++) // then create up to t errors
-        rc_x[rand()%n] ^= alpha_to[rand()%n];
+
+    for (int i = 0; i < t; i++) // then create up to t errors
+        rc_x[rand() % n] ^= alpha_to[rand() % n];
 }
 
 /*
@@ -1101,14 +1092,14 @@ void reedSolomon::sim_channel()
  * Description:
  *    pass encoded codeword c(x) through the channel and generate the
  *    received codeword rc(x) using the following channel model:
- *      The codeword elements (c_0, c_1, ..., c_(n-1)) are transmitted over a 
- *      channel where symbol errors occur independently with probability Ps, 
+ *      The codeword elements (c_0, c_1, ..., c_(n-1)) are transmitted over a
+ *      channel where symbol errors occur independently with probability Ps,
  *      i.e. each received symbol rc_i = c_i + e_i, where rc_i, c_i, e_i [error]
  *      are IN GF(2^m) and:
  *                       |1 - Ps      if a == 0
  *      Prob(e_k = a) = -|
  *                       |Ps/(2^m -1) if a != 0
- *  
+ *
  * Arguments:
  *   Ps - symbol error probability
  *
@@ -1131,15 +1122,14 @@ void reedSolomon::sim_channel()
  */
 void reedSolomon::sim_channel(double Ps)
 {
-    for(int i=0; i<n; i++) // create errors with probability Ps
-    {       
-        if (((double) rand()/RAND_MAX) < Ps)
-            rc_x[i] = c_x[i]^alpha_to[rand()%n];
+    for (int i = 0; i < n; i++) // create errors with probability Ps
+    {
+        if (((double)rand() / RAND_MAX) < Ps)
+            rc_x[i] = c_x[i] ^ alpha_to[rand() % n];
         else
             rc_x[i] = c_x[i];
     }
 }
-
 
 /*
  * get_syndromes()
@@ -1156,7 +1146,7 @@ void reedSolomon::sim_channel(double Ps)
  *
  *   - The emainders S_i resulting from these divisions are known as syndromes
  *     and can be written as S_1,...,S_2t
- *  
+ *
  *   - Rearranging the equation above produces:
  *       S_i = Q_i(x)*(x + alpha^i) + rc(x)
  *
@@ -1166,10 +1156,10 @@ void reedSolomon::sim_channel(double Ps)
  *       where the coefficients rc_0,rc_1,...rc_(n-1) are the symbols of the
  *       received code word, rc(x).
  *
- *   - This means that each of the syndrom values can be obtained by 
+ *   - This means that each of the syndrom values can be obtained by
  *     substituting x = alpha^i in the received polynomial, rc(x), as the
  *     alternative to the division of rc(x) by (x + alpha^i) to form a remainder
- *  
+ *
  *   - Substituting in the equation: rc(x) = c(x) + Error(x)
  *       rc(alpha^i) = c(alpha^i) + E(alpha^i)
  *     in which c(alpha^i) = 0 because (x+alpha^i) is a factor of g(x), which
@@ -1210,7 +1200,7 @@ void reedSolomon::sim_channel(double Ps)
  *   - If any syndrome value is non-zero set detect_error to true.
  *
  * References:
- *   - http://downloads.bbc.co.uk/rd/pubs/whp/whp-pdf-files/WHP031.pdf 
+ *   - http://downloads.bbc.co.uk/rd/pubs/whp/whp-pdf-files/WHP031.pdf
  *
  * Revision History
  *   Jun 01, 2011    Nnoduka Eruchalu    Initial Revision
@@ -1218,20 +1208,20 @@ void reedSolomon::sim_channel(double Ps)
  */
 void reedSolomon::get_syndromes()
 {
-    for(int i=1; i <= size_s; i++)  // i is index into alpha^i values
-    {                                // so its +1 of s_x index
-        s_x[i-1] = rc_x[0];
-        
-        for(int j=1; j<n; j++)
+    for (int i = 1; i <= size_s; i++) // i is index into alpha^i values
+    {                                 // so its +1 of s_x index
+        s_x[i - 1] = rc_x[0];
+
+        for (int j = 1; j < n; j++)
         {
-            if(rc_x[j])  //cummulative additions when there is a factor
-                s_x[i-1] ^= alpha_to[(index_of[rc_x[j]]+i*j)%n];
+            if (rc_x[j]) // cummulative additions when there is a factor
+                s_x[i - 1] ^= alpha_to[(index_of[rc_x[j]] + i * j) % n];//抑或运算代表按位相加
         }
-        
-        if(s_x[i-1]) detect_error = true;
+
+        if (s_x[i - 1])
+            detect_error = true;
     }
 }
-
 
 /*
  * euclid(int *a_x, int *b_x, int * & r_xi, int * &t_xi)
@@ -1241,12 +1231,12 @@ void reedSolomon::get_syndromes()
  *   of two numbers. Use this for finding the coefficients of the error
  *   locator polynomial, lambda(x), with the special end condition of:
  *     order(r_xi) < t;
- * 
+ *
  * Arguments:
- *   - a_x = a(x); 
+ *   - a_x = a(x);
  *   - b_x = b(x);
- *   - r_xi = r(x)_i;  
- *   - t_xi = t(x)_i
+ *   - r_xi = r(x)_i;
+ *   - t_xi = t(x)_i;
  *
  * Return:
  *   None
@@ -1259,87 +1249,86 @@ void reedSolomon::get_syndromes()
  *
  * Operation:
  *  Below is the Euclidean algorithm in pseudo-code:
- *  Initialization: r_(-1)(x) = a(x);  r_0(x) = b(x); 
+ *  Initialization: r_(-1)(x) = a(x);  r_0(x) = b(x);
  *                  s_(-1)(x) = 1;     s_0(x) = 0
  *                  t_(-1)(x) = 0;     t_0(x) = 1;
  *  while(deg(r_i(x)) >= t)
  *  {
  *     // compute quotient[q_i(x)] and remainder [r_i(x)]
- *     q_i(x) = r_(i-2)(x) / r_(i-1)(x)     
+ *     q_i(x) = r_(i-2)(x) / r_(i-1)(x)
  *     r_i(x) = r_(i-2)(x) % r_(i-1)(x) = r_(i-2)(x) - q_i(x)*r_(i-1)(x)
- *     s_i(x) = s_(i-2)(x) - q_i(x)*s_(i-1)(x) 
- *     t_i(x) = t_(i-2)(x) - q_i(x)*t_(i-1)(x) 
+ *     s_i(x) = s_(i-2)(x) - q_i(x)*s_(i-1)(x)
+ *     t_i(x) = t_(i-2)(x) - q_i(x)*t_(i-1)(x)
  *   }
  *
  * Revision History
  *   Jun 1, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::euclid(int *a_x, int *b_x, int * & r_xi, int * &t_xi)
+void reedSolomon::euclid(int *a_x, int *b_x, int *&r_xi, int *&t_xi)
 {
-    int size = 2*t+1; // remember a(x) is order 2t;
+    int size = 2 * t + 1; // remember a(x) is order 2t;
     int *s_xi = new int[size];
-    int *q_xi = new int[size];   
+    int *q_xi = new int[size];
     int *r_xio = new int[size];
     int *s_xio = new int[size];
     int *t_xio = new int[size];
-    
-    int *temp = new int[size];
-    
-    // initialize r_xi-- yes i know the size of b_x is (size-1)-- r0 = b
-    for(int i=0; i < size-1; i++)
-        r_xi[i] = b_x[i];
-    r_xi[size-1] = 0;
 
-    for(int i=0; i< size; i++) // rn1 = a, tn1 = 0, s0 = 0
+    int *temp = new int[size];
+
+    // initialize r_xi-- yes i know the size of b_x is (size-1)-- r0 = b
+    for (int i = 0; i < size - 1; i++)
+        r_xi[i] = b_x[i];
+    r_xi[size - 1] = 0;
+
+    for (int i = 0; i < size; i++) // rn1 = a, tn1 = 0, s0 = 0
     {
         r_xio[i] = a_x[i];
-        s_xio[i] = s_xi[i] = t_xio[i] = t_xi[i]= 0;
+        s_xio[i] = s_xi[i] = t_xio[i] = t_xi[i] = 0;
     }
     s_xio[0] = t_xi[0] = 1; // t0 = 1, sn1 = 1
-   
+
     int i = 0;
-       
-    while(get_order(r_xi, size) >= t)
+
+    while (get_order(r_xi, size) >= t)
     {
         i++;
-        copy_arr(temp, r_xi, size); // about to trash r_xi so save it
+        copy_arr(temp, r_xi, size);           // about to trash r_xi so save it
         doDiv(q_xi, r_xi, r_xio, temp, size); // update qxi and r_xi
         copy_arr(r_xio, temp, size);          // update r_xio to last r_xi
-        
-        copy_arr(temp, s_xi, size); // about to trash s_xi so save it
-        doMul(s_xi, q_xi, temp,  size, size, size); 
-        doSub(s_xi, s_xio, size);            // update s_xi
-        copy_arr(s_xio, temp, size);         // update s_xio to last s_xi
-        
-        copy_arr(temp, t_xi, size); // about to trash t_xi so save it
-        doMul(t_xi, q_xi, temp,  size, size, size); 
-        doSub(t_xi, t_xio, size);            // update t_xi
-        copy_arr(t_xio, temp, size);         // update t_xio to last t_xi
-    }
-        
-    delete [] s_xi;                          // cleanup
-    delete [] q_xi;
-    delete [] r_xio;
-    delete [] s_xio;
-    delete [] t_xio;
-    delete [] temp;
-}
 
+        copy_arr(temp, s_xi, size); // about to trash s_xi so save it
+        doMul(s_xi, q_xi, temp, size, size, size);
+        doSub(s_xi, s_xio, size);    // update s_xi
+        copy_arr(s_xio, temp, size); // update s_xio to last s_xi
+
+        copy_arr(temp, t_xi, size); // about to trash t_xi so save it
+        doMul(t_xi, q_xi, temp, size, size, size);
+        doSub(t_xi, t_xio, size);    // update t_xi
+        copy_arr(t_xio, temp, size); // update t_xio to last t_xi
+    }
+
+    delete[] s_xi; // cleanup
+    delete[] q_xi;
+    delete[] r_xio;
+    delete[] s_xio;
+    delete[] t_xio;
+    delete[] temp;
+}
 
 /*
  * chien(int *lambda, int * & roots)
  * Description:
- *   Find the roots of the error locator polynomial, lambda(x) using the Chien 
+ *   Find the roots of the error locator polynomial, lambda(x) using the Chien
  *   search, which is an exhaustive search over all the elements in the Galois
  *   field.
  *
- *   - These roots are found by trial and error in which all possible values of 
- *     the roots (the GF(2^m) values alpha^i, 0 <= i <= n-1) are substituted 
- *     into the error locator polynomial. 
+ *   - These roots are found by trial and error in which all possible values of
+ *     the roots (the GF(2^m) values alpha^i, 0 <= i <= n-1) are substituted
+ *     into the error locator polynomial.
  *
  *   - If the lambda(x) expression evaluates to zero, upon substitution, then
- *     the value of x is a root, and identifies the error position at 
+ *     the value of x is a root, and identifies the error position at
  *     (alpha^i)^-1 = alpha^(n-i).
  *     + This can be interpreted as an error at location (n-i)
  *
@@ -1351,7 +1340,7 @@ void reedSolomon::euclid(int *a_x, int *b_x, int * & r_xi, int * &t_xi)
  * Arguments:
  *   - lambda = lambda(x): error locator polynomial
  *   - roots  = array of index forms of possible roots, where alpha^i is only a
- *              root if root[i] == 1          
+ *              root if root[i] == 1
  *
  * Return:
  *   None
@@ -1365,27 +1354,29 @@ void reedSolomon::euclid(int *a_x, int *b_x, int * & r_xi, int * &t_xi)
  * Operation:
  *   - loop through all possible roots (alpha^i, 0 <= i < n):
  *     + for each root plug it into lambda[j] and see if it evaluates 0
- *     + if it does, indicate that this index form of the field element 
+ *     + if it does, indicate that this index form of the field element
  *       (alpha^i) is a root, by setting roots[i] = 1. Otherwise, set roots[i]=0
  *
  * Revision History
  *   Jun 01, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
-void reedSolomon::chien(int *lambda, int * & roots)
+void reedSolomon::chien(int *lambda, int *&roots)
 {
-    for(int i=0; i < n; i++)  // loop through all possible roots
-    {   int lbd = 0;                // for each root plug it into lambda(x)
-        for(int j=0; j< 2*t+1; j++) //
+    for (int i = 0; i < n; i++) // loop through all possible roots
+    {
+        int lbd = 0;                        // for each root plug it into lambda(x)
+        for (int j = 0; j < 2 * t + 1; j++) //
         {
-            if(lambda[j])
-                lbd ^= alpha_to[ (index_of[lambda[j]]+i*j)%n ];
+            if (lambda[j])
+                lbd ^= alpha_to[(index_of[lambda[j]] + i * j) % n];
         }
-        if(lbd == 0) roots[i] = 1;   // record if this is a root
-        else roots[i] = 0;
-    }    
+        if (lbd == 0)
+            roots[i] = 1; // record if this is a root
+        else
+            roots[i] = 0;
+    }
 }
-
 
 /*
  * forney(int *lambda, int *omega, int *err_loc)
@@ -1405,7 +1396,7 @@ void reedSolomon::chien(int *lambda, int * & roots)
  *   - the err_loc array is of size n, and is set at indices where the
  *     rc_x has errors
  *   - lambda and omega arrays are of size 2*t + 1
- *  
+ *
  * Arguments:
  *   - lambda = lambda(x);  error locator polynomial
  *   - omega = omega(x); error magnitude/value/evaluator polynomial
@@ -1428,43 +1419,42 @@ void reedSolomon::chien(int *lambda, int * & roots)
  */
 void reedSolomon::forney(int *lambda, int *omega, int *err_loc)
 {
-    int size = 2*t+1;
-    
+    int size = 2 * t + 1;
+
     // lambdap(x) = derivative[lambda(x)] = lambda(x)'
-    int * lambdap = new int[size];  
-    for(int i=0; i < size-1; i++)
-        lambdap[i] = ((i+1)%2)*lambda[i+1];
-    lambdap[size-1] = 0;
-    
+    int *lambdap = new int[size];
+    for (int i = 0; i < size - 1; i++)
+        lambdap[i] = ((i + 1) % 2) * lambda[i + 1];
+    lambdap[size - 1] = 0;
+
     // setup decoded word and fix it
-    for(int i=0; i < n; i++)
+    for (int i = 0; i < n; i++)
     {
-        if(err_loc[i])
+        if (err_loc[i])
         {
             int num = 0;   // numerator
             int denum = 0; // denominator
-            for(int j=0; j< size; j++)
+            for (int j = 0; j < size; j++)
             {
-                if(omega[j])
-                    num ^= alpha_to[ (index_of[omega[j]]+ ((n-i)%n)*j)%n ];
-                if(lambdap[j])
-                    denum ^= alpha_to[ (index_of[lambdap[j]]+ ((n-i)%n)*j)%n ];
+                if (omega[j])
+                    num ^= alpha_to[(index_of[omega[j]] + ((n - i) % n) * j) % n];
+                if (lambdap[j])
+                    denum ^= alpha_to[(index_of[lambdap[j]] + ((n - i) % n) * j) % n];
             }
-            dc_x[i] = rc_x[i]^alpha_to[(index_of[num] - index_of[denum] + n)%n];
+            dc_x[i] = rc_x[i] ^ alpha_to[(index_of[num] - index_of[denum] + n) % n];
         }
         else // err_loc[i] == 0  // rc(x) is correct at this index
             dc_x[i] = rc_x[i];
     }
-    
-    delete [] lambdap;
-}
 
+    delete[] lambdap;
+}
 
 /*
  * decode()
  * Description:
  *   a Reed-Solomon decoder.
- *  
+ *
  *   ## Background:
  *   - The error locator polynomial:
  *     lambda(x) = 1 + lambda_1*x + ... + lambda_(v-1)*x^(v-1) + lambda_v*x^v
@@ -1475,7 +1465,7 @@ void reedSolomon::forney(int *lambda, int *omega, int *err_loc)
  *   - The error magnitutude polynomial
  *     omega(x) = omega_(v-1)*x^(v-1) + ... + omega_1*x + omega_0;
  *     + also called error value or error evaluator polynomial
- * 
+ *
  *   - omega(x) = [s(x)*lambda(x)] mod x^2t, where s(x) is syndrome polynomial
  *     any terms of degree x^2t or higher in the product are ignored
  *
@@ -1498,7 +1488,7 @@ void reedSolomon::forney(int *lambda, int *omega, int *err_loc)
  *   - Use Chien Search to get the roots of lambda(x) and then get the
  *     error locations from these roots (just the inverse).
  *   - Use Forney's Algorithm to determine the error values at error locations
- *     then add that to the received codeword, to get the decoded codeword 
+ *     then add that to the received codeword, to get the decoded codeword
  *
  * Revision History
  *   Jun 01, 2011    Nnoduka Eruchalu    Initial Revision
@@ -1506,51 +1496,52 @@ void reedSolomon::forney(int *lambda, int *omega, int *err_loc)
  */
 void reedSolomon::decode()
 {
-    get_syndromes();  // first get syndromes
-    if(!detect_error) // no error detected
-    {                 // then dc(x) = rc(x)
-        for(int i=0; i<n; i++)
+    get_syndromes();   // first get syndromes
+    if (!detect_error) // no error detected
+    {                  // then dc(x) = rc(x)
+        for (int i = 0; i < n; i++)
             dc_x[i] = c_x[i];
         return;
     }
-    
+
     // there is an error so get error locator polynomial
-    int size = 2*t +1;
+    int size = 2 * t + 1;
     int *r_xi = new int[size];
     int *t_xi = new int[size];
     int *a_x = new int[size];
-    a_x[2*t] = 1;//a(x) = x^2t
-    for(int i=0; i < 2*t; i++)
+    a_x[2 * t] = 1; // a(x) = x^2t
+    for (int i = 0; i < 2 * t; i++)
         a_x[i] = 0;
-    
+
     // use euclidean algorithm
-    euclid(a_x, s_x, r_xi, t_xi);  // results in weird scaling by alpha
+    euclid(a_x, s_x, r_xi, t_xi); // results in weird scaling by alpha
     // omega(x) = r(x)_i and lambda(x) = t(x)_i
     // now scale lambda and omega by dividing by t(0)
     int pow = index_of[t_xi[0]];
-    for(int i = 0; i < size; i++)
+    for (int i = 0; i < size; i++)
     {
-        t_xi[i] =  (t_xi[i] ? alpha_to[(index_of[t_xi[i]]+n-pow)%n] : 0);
-        r_xi[i] =  (r_xi[i] ? alpha_to[(index_of[r_xi[i]]+n-pow)%n] : 0);
+        t_xi[i] = (t_xi[i] ? alpha_to[(index_of[t_xi[i]] + n - pow) % n] : 0);
+        r_xi[i] = (r_xi[i] ? alpha_to[(index_of[r_xi[i]] + n - pow) % n] : 0);
     }
-    
+
     int *lbd_roots = new int[n]; // lambda's roots are a^i when lbd_roots[i]!= 0
     chien(t_xi, lbd_roots);
-    
+
     int *err_loc = new int[n];  // error_locators are inverse of roots of lambda
-    for(int i = 0; i<n; i++)    // initialize error locators array
+    for (int i = 0; i < n; i++) // initialize error locators array
         err_loc[i] = 0;
-    for(int i = 0; i<n; i++)    // then setup the values... note that if
-        if (lbd_roots[i]) err_loc[(n-i)%n] = 1; // err_loc[i] != 0, then index i
-                                                // is in error in rc_x [rc(x)]
-    
+    for (int i = 0; i < n; i++) // then setup the values... note that if
+        if (lbd_roots[i])
+            err_loc[(n - i) % n] = 1; // err_loc[i] != 0, then index i
+                                      // is in error in rc_x [rc(x)]
+
     forney(t_xi, r_xi, err_loc); // run forney's algorithm -- also updates dc(x)
 
-    delete [] r_xi;            // cleanup
-    delete [] t_xi;
-    delete [] a_x;
-    delete [] lbd_roots;
-    delete [] err_loc;
+    delete[] r_xi; // cleanup
+    delete[] t_xi;
+    delete[] a_x;
+    delete[] lbd_roots;
+    delete[] err_loc;
 }
 
 /*
@@ -1563,27 +1554,28 @@ void reedSolomon::decode()
  *
  * Return:
  *   Success Boolean:
- *   - true indicates decoding worked. 
+ *   - true indicates decoding worked.
  *   - false indicates decoding failed
- * 
+ *
  * Assumptions:
  *   None
- *  
+ *
  * Operation:
  *   - start by assuming correct decoding
  *   - loop through all corresponding terms of both the transmitted codeword
  *     and the decoded codeword and compare them along the way.
  *     + if any pair arent equal flag an error in the decoder
- *   
+ *
  * Revision History
  *   Jun 01, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
 bool reedSolomon::compare()
 {
-    bool correctly_decoded = true;    // start by assuming correct decoding
-    for(int i = 0; i< n; i++ )        // if at any position, a mismatch occurs
-        if(c_x[i] != dc_x[i]) correctly_decoded = false; // record an incorrect
-    
+    bool correctly_decoded = true; // start by assuming correct decoding
+    for (int i = 0; i < n; i++)    // if at any position, a mismatch occurs
+        if (c_x[i] != dc_x[i])
+            correctly_decoded = false; // record an incorrect
+
     return correctly_decoded;
 }
