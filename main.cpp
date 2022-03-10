@@ -30,8 +30,8 @@ using namespace std;
 #include "primitives.h" // primitive elements
 #include "reedSolomon.h"
 
-const int num_data = 100;            // number of different channel samples
-const int num_trials_per_pt = 1000; // number of trials at each data point
+const int num_data = 15;              // number of different channel samples
+const int num_trials_per_pt = 100000; // number of trials at each data point
 
 ////////////////////////////////////////////////////////////////////////////////
 // Helper functions
@@ -1196,21 +1196,18 @@ void reedSolomon::encode()
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
 
-void reedSolomon::sim_channel(double Ps)
-{
-  for (int i = 0; i < n; i++) // create errors with probability Ps
-  {
-    if (((double)rand() / RAND_MAX) < Ps)
-      rc_x[i] = c_x[i] ^ alpha_to[rand() % n];
-    else
-      rc_x[i] = c_x[i];
-  }
-}
+// void reedSolomon::sim_channel(double Ps)
+// {
+//   for (int i = 0; i < n; i++) // create errors with probability Ps
+//   {
+//     if (((double)rand() / RAND_MAX) < Ps)
+//       rc_x[i] = c_x[i] ^ alpha_to[rand() % n];
+//     else
+//       rc_x[i] = c_x[i];
+//   }
+// }
 
-
-
-
-/* double reedSolomon::Gauss() //生成标准高斯噪声
+double reedSolomon::Gauss() //生成标准高斯噪声
 {
   double X, Y, Z;
   X = (double)(rand() + 1.0) / (double)(RAND_MAX + 1.0);
@@ -1222,12 +1219,14 @@ void reedSolomon::sim_channel(double Ps)
 void reedSolomon::sim_channel(double EbN0_dB)
 {
   double Eb = (double)n / (double)k;
+  // double Eb = 1.0;
   // Code Rate   EsN0 = R * K_mod * Eb/N0;   Es = ;  N0 = Es/ EsNo;
   double EbN0 = pow(10.0, EbN0_dB / 10.0);
   double N0 = Eb / EbN0;
   double sigma = sqrt(N0 / 2);
   double *a = new double[m];
   int b;
+  int tmp;
   for (int i = 0; i < n; i++)
   {
     b = c_x[i];
@@ -1242,26 +1241,23 @@ void reedSolomon::sim_channel(double EbN0_dB)
       else
         a[j] = -1.0 + sigma * Gauss();
       b /= 2;
-      // printf("a[%d]=%f\n",j,a[j]);
+      // printf("a[%d]=%f\n", j, a[j]);
     }
-
-    int tmp = 1;
+    rc_x[i] = 0;
+    tmp = 1;
     for (int j = 0; j < m; j++)
     {
       if (a[j] >= 0.0)
       {
-        rc_x[i] = c_x[i];
       }
       else
-        rc_x[i] = c_x[i] ^ tmp;
+        rc_x[i] = rc_x[i] + tmp;
+      // cout<<rc_x[i]<<endl;
       tmp <<= 1;
     }
   }
   delete[] a;
 }
- */
-
-
 
 /*
  * get_syndromes()
@@ -1712,6 +1708,17 @@ bool reedSolomon::compare()
   return correctly_decoded;
 }
 
+int reedSolomon::comparesym()
+{
+  int cnt = 0;
+  for (int i = n - 1; i >= 2 * t; i--)
+  {
+    if (c_x[i] != dc_x[i])
+      cnt++;
+  }
+  return cnt;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
@@ -1782,8 +1789,8 @@ int main(void)
   int k;
 
   // pick default m,t values
-  m = 7;  // probably want values < 16 for top speed
-  t = 30; // 30                   // remember n = 2^m-1, so pick t accordingly
+  m = 8;  // probably want values < 16 for top speed
+  t = 16; // 30                   // remember n = 2^m-1, so pick t accordingly
 
   // prompt user to provide m and t values
   /*  cout << "enter m: ";
@@ -1814,28 +1821,37 @@ int main(void)
   double *Ps = new double[num_data];
   // array holding error rate at each data point
   double *Error_Rate = new double[num_data];
-
+  double *SER = new double[num_data];
   // initial data point will have Probability of error == 0
   double Pss = 0.0;
 
+  double EbN0_dB = 4.0;
+  // perform a number of trials of generating
+  int num_errors;
+  int num_error_syms;
+
   // loop through data points, being sure to increment Ps by delta on each run
-  for (int i = 0; i < num_data; i++, Pss += delta)
+  // for (int i = 0; i < num_data; i++, Pss += delta)
+  for (int i = 0; i < 1; i++, Pss += delta)
   {
     // keep users informed on progress status
     // cout << i << endl;
 
-    double EbN0_dB = double(i);
+    EbN0_dB = 6.25;
     // perform a number of trials of generating
-    int num_errors = 0;
+    num_errors = 0;
+    num_error_syms = 0;
+
     for (int j = 0; j < num_trials_per_pt; j++)
     {
       reedSolomon rs(m, t);    // create the reed solomon object with m and t
       rs.gen_rand_msg();       // generate a random  message
       rs.encode();             // encode the given message
-      rs.sim_channel(Pss); // pass encoded message through channel
+      rs.sim_channel(EbN0_dB); // pass encoded message through channel
       rs.decode();             // now decoded received message
       // rs.print_params();    // print some good stuff
       bool correctly_decoded = rs.compare(); // check if decoder worked
+      num_error_syms += rs.comparesym();
 
       if (!correctly_decoded)
         num_errors++;
@@ -1844,7 +1860,11 @@ int main(void)
     // log Ps value and error rate for this data point
     Ps[i] = Pss;
     Error_Rate[i] = (double)num_errors / num_trials_per_pt;
-    cout << "i=" << i << "\t\tPss=" << Pss << "\t\tError_Rate=" << Error_Rate[i] << endl;
+    SER[i] = (double)num_error_syms / (num_trials_per_pt * k);
+
+    // cout << "i=" << i << "\t\tEbN0_dB=" << EbN0_dB << "\t\tError_Rate=" << Error_Rate[i] << endl;
+
+    cout << EbN0_dB << "\t\t" << num_error_syms << "\t\t" << Error_Rate[i] << "\t\t" << SER[i] << endl;
   }
 
   // remind user what parameters were used in simulation
@@ -1860,5 +1880,6 @@ int main(void)
 
   delete[] Ps; // cleanup
   delete[] Error_Rate;
+  delete[] SER;
   return 1;
 }

@@ -149,12 +149,16 @@ public:
     ///////////////////////////////////////////////////////////////////////////
     void gen_rand_msg();         // create random message m(x)
     void encode();               // encode created message, m(x), to get c(x)
-    void sim_channel();          // generate rc(x) with at most t errors
-    void sim_channel(double Ps); // generate rc(x) with Ps symbol error prob.
-    // void sim_channel(double EbN0_dB);
+
+
+    // void sim_channel();          // generate rc(x) with at most t errors
+    // void sim_channel(double Ps); // generate rc(x) with Ps symbol error prob.
+    void sim_channel(double EbN0_dB);
+
+
     void decode();               // decode received vector rc(x);
     bool compare();              // compare c(x) and dc(x)
-    int comparesym();
+    int comparesym();           //calculate symbol error rate.
 };
 
 #endif                                                     /* REED_SOLOMON_H_ */
