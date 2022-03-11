@@ -1,12 +1,21 @@
-# Reed-Solomon (RS) Encoder/Decoder + Channel Simulation
+---
+useMath:true
+---
+
+# Reed-Solomon（RS）码的编译码与仿真
 
 |         |                                                        |
 | ------- | ------------------------------------------------------ |
-| Author  | Nnoduka Eruchalu                                       |
-| Date    | 03/16/2014                                             |
+| Author  | He Guanchen                                      |
+| Date    | 03/11/2022                                             |
+
+本次实验参考了Nnoduka Eruchalu在Github上的代码。由于源代码已经完成了RS码的编码器与基于**欧几里得算法**的译码器，并且在**多远对称信道**已经完成了仿真，本人考虑将他的代码应用于**BPSK调制**后进入**AWGN**信道进行仿真。并且由于**Berlekamp Massey算法**在解递归方程组时效率更高，本人重新编写了基于**BM算法**的译码器。
+
+## 注意
+核心代码已被修改，目前有效代码仅有**main.cpp**,**reedSolomon.h**与**primitives.h**
 
 
-## Software Technologies
+## 编程语言
 * C++
 
 
@@ -156,4 +165,9 @@ To run enter `./build/rs`
 Plots are generated using C++'s bindings to `gnuplot`, so you will need to have
 that installed.
 If on OSX, MacPorts is your friend...
+
+
+## 代码修改
+所有程序代码全部在**main.cpp**文件中，**reedSolomon.h**文件仅仅用于声明**reedSolomon**对象, **primitives.h**只用于存储
+本原多项式。
 
