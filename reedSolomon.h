@@ -122,7 +122,9 @@ private:
     
     // get the coefficients of the error locator polynomial
     void euclid(int *a_x, int *b_x, int * & r_xi, int * & t_xi);
-    
+    void BM(int *b_x, int *&t_xi);
+    void get_magnitude_poly(int *&omega,int *t_xi);
+
     // find the roots of the error locator polynomial
     void chien(int *lambda, int * & roots);
     
@@ -149,6 +151,13 @@ public:
     ///////////////////////////////////////////////////////////////////////////
     void gen_rand_msg();         // create random message m(x)
     void encode();               // encode created message, m(x), to get c(x)
+
+    void test(){
+        s_x[0]=15;
+        s_x[1]=3;
+        s_x[2]=4;
+        s_x[3]=12;
+    }
 
 
     // void sim_channel();          // generate rc(x) with at most t errors

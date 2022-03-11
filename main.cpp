@@ -30,7 +30,7 @@ using namespace std;
 #include "primitives.h" // primitive elements
 #include "reedSolomon.h"
 
-const int num_data = 15;              // number of different channel samples
+const int num_data = 15;            // number of different channel samples
 const int num_trials_per_pt = 100000; // number of trials at each data point
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -640,7 +640,6 @@ void reedSolomon::mul(int *&res1, int *g1, int fact, int w, int size_res1,
   // zero out coefficients of terms with higher than possible powers of x
   for (i = size_res1 - 1; i >= size_g1 + w; i--)
     res1[i] = 0;
-
   //
   for (i = size_g1 - 1 + w; i >= w; i--)
     res1[i] = (g1[i - w] ? alpha_to[(index_of[g1[i - w]] + fact) % n] : 0);
@@ -1444,6 +1443,112 @@ void reedSolomon::euclid(int *a_x, int *b_x, int *&r_xi, int *&t_xi)
   delete[] temp;
 }
 
+void reedSolomon::BM(int *b_x, int *&t_xi)
+{
+  int size = 2 * t + 1; // remember a(x) is order 2t;
+  int *lam = new int[size];
+  int *B = new int[size];
+  int *S = new int[size];
+  int L = 0;
+  int r = 0;
+
+  int *temp = new int[size];
+
+  // initialize lam(x),B(x),S(x)
+  for (int i = 0; i < size - 1; i++)
+  {
+    lam[i] = 0;
+    S[i] = b_x[i];
+    B[i] = 0;
+  }
+  S[size - 1] = 0;
+  lam[size - 1] = 0;
+  B[size - 1] = 0;
+
+  lam[0] = 1;
+  B[0] = 1;
+
+  int delta;
+
+  while (r < 2 * t)
+  {
+    r++;
+    delta = 0;
+    int order_B = get_order(B, size);
+    int order_lam = get_order(lam, size);
+    for (int j = 0; j < order_lam + 1; j++)
+    {
+      if (lam[j] != 0 && S[r - j - 1] != 0)
+        delta ^= alpha_to[(index_of[lam[j]] + index_of[S[r - j - 1]]) % n];
+    }
+
+    if (delta == 0)
+    {
+      mul(temp, B, 0, 1, size, order_B + 1);
+      for (int i = 0; i < size; i++)
+      {
+        B[i] = temp[i];
+      }
+    }
+
+    else if (2 * L > r - 1)
+    {
+      mul(temp, B, index_of[delta], 1, size, order_B + 1);
+      for (int i = 0; i < size; i++)
+      {
+        lam[i] ^= temp[i];
+      }
+
+      mul(temp, B, 0, 1, size, order_B + 1);
+      for (int i = 0; i < size; i++)
+      {
+        B[i] = temp[i];
+      }
+    }
+
+    else
+    {
+      L = r - L;
+      mul(temp, B, index_of[delta], 1, size, order_B + 1);
+      for (int i = 0; i < size; i++)
+      {
+
+        B[i] = (lam[i] ? alpha_to[(index_of[lam[i]] - index_of[delta] + n) % n] : 0);
+
+        lam[i] ^= temp[i];
+      }
+    }
+  }
+
+  copy_arr(t_xi, lam, size);
+
+  delete[] lam;
+  delete[] B;
+  delete[] S;
+  delete[] temp;
+}
+
+void reedSolomon::get_magnitude_poly(int *&omega, int *t_xi)
+{
+  int size = 2 * t;
+  int nv = get_order(t_xi, size);
+  for (int i = 0; i < nv; i++)
+  {
+    omega[i] = s_x[i];
+
+    for (int j = 1; j <= i; j++)
+    {
+      if (s_x[i - j] != 0 && t_xi[j] != 0)
+        omega[i] ^= alpha_to[(index_of[s_x[i - j]] + index_of[t_xi[j]]) % n];
+    }
+  }
+
+  for (int i = nv; i < size + 1; i++)
+  {
+    omega[i] = 0;
+  }
+}
+
 /*
  * chien(int *lambda, int * & roots)
  * Description:
@@ -1642,7 +1747,11 @@ void reedSolomon::decode()
     a_x[i] = 0;
 
   // use euclidean algorithm
-  euclid(a_x, s_x, r_xi, t_xi); // results in weird scaling by alpha
+  // euclid(a_x, s_x, r_xi, t_xi); // results in weird scaling by alpha
+
+  BM(s_x, t_xi);
+  get_magnitude_poly(r_xi, t_xi);
+
   // omega(x) = r(x)_i and lambda(x) = t(x)_i
   // now scale lambda and omega by dividing by t(0)
   int pow = index_of[t_xi[0]];
@@ -1781,6 +1890,7 @@ int reedSolomon::comparesym()
  *   Jun 02, 2011    Nnoduka Eruchalu    Initial Revision
  *   Mar 16, 2014    Nnoduka Eruchalu    Cleaned up comments
  */
+
 int main(void)
 {
   srand(time(0)); // initialize random seed
@@ -1789,7 +1899,7 @@ int main(void)
   int k;
 
   // pick default m,t values
-  m = 8;  // probably want values < 16 for top speed
+  m = 8; // probably want values < 16 for top speed
   t = 16; // 30                   // remember n = 2^m-1, so pick t accordingly
 
   // prompt user to provide m and t values
@@ -1825,7 +1935,7 @@ int main(void)
   // initial data point will have Probability of error == 0
   double Pss = 0.0;
 
-  double EbN0_dB = 4.0;
+  double EbN0_dB = 3.75;
   // perform a number of trials of generating
   int num_errors;
   int num_error_syms;
@@ -1837,7 +1947,7 @@ int main(void)
     // keep users informed on progress status
     // cout << i << endl;
 
-    EbN0_dB = 6.25;
+    EbN0_dB = 6.5;
     // perform a number of trials of generating
     num_errors = 0;
     num_error_syms = 0;
@@ -1848,7 +1958,9 @@ int main(void)
       rs.gen_rand_msg();       // generate a random  message
       rs.encode();             // encode the given message
       rs.sim_channel(EbN0_dB); // pass encoded message through channel
-      rs.decode();             // now decoded received message
+
+      // rs.test();
+      rs.decode(); // now decoded received message
       // rs.print_params();    // print some good stuff
       bool correctly_decoded = rs.compare(); // check if decoder worked
       num_error_syms += rs.comparesym();
