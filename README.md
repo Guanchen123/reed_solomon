@@ -6,6 +6,9 @@
 | Date    | 03/16/2014                                             |
 
 
+## Attention
+The codes have been modified. The avalable codes now are only **main.cpp**, **reedSolomon.h**  and **primitives.h**.
+
 ## Software Technologies
 * C++
 
