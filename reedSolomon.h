@@ -112,7 +112,7 @@ private:
     int get_order(int *p_x, int size_p);   // get order of polynomial p(x)
     
     void copy_arr(int * & dst,int * src, int size); // dst[] = src[]
-    double Gauss();
+    double Gauss();  //get a random variable of Gaussian distribution
     
     ///////////////////////////////////////////////////////////////////////////
     // Reed-Solomon encoding/decoding methods
@@ -120,8 +120,10 @@ private:
     // populate s(x)
     void get_syndromes(); 
     
-    // get the coefficients of the error locator polynomial
+    // get the coefficients of the error locator polynomial(euclidean algorithm)
     void euclid(int *a_x, int *b_x, int * & r_xi, int * & t_xi);
+
+    // get the coefficients of the error locator polynomial(Berlekamp-Massey algorithm)
     void BM(int *b_x, int *&t_xi);
     void get_magnitude_poly(int *&omega,int *t_xi);
 
@@ -152,12 +154,6 @@ public:
     void gen_rand_msg();         // create random message m(x)
     void encode();               // encode created message, m(x), to get c(x)
 
-    void test(){
-        s_x[0]=15;
-        s_x[1]=3;
-        s_x[2]=4;
-        s_x[3]=12;
-    }
 
 
     // void sim_channel();          // generate rc(x) with at most t errors
