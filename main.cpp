@@ -31,7 +31,7 @@ using namespace std;
 #include "reedSolomon.h"
 
 const int num_data = 15;            // number of different channel samples
-const int num_trials_per_pt = 100000; // number of trials at each data point
+const int num_trials_per_pt = 1000; // number of trials at each data point
 
 ////////////////////////////////////////////////////////////////////////////////
 // Helper functions
