@@ -1,10 +1,23 @@
-# Reed-Solomon (RS) Encoder/Decoder + Channel Simulation
+---
+useMath:true
+---
+
+# Reed-Solomon（RS）码的编译码与仿真
+
 
 |         |                                                        |
 | ------- | ------------------------------------------------------ |
 | Author  | Nnoduka Eruchalu                                       |
 | Date    | 03/16/2014                                             |
+|         |                                                        |
+| Author  | He Guanchen                                            |
+| Date    | 03/11/2022                                             |
 
+
+本次实验参考了Nnoduka Eruchalu在Github上的代码。由于源代码已经完成了RS码的编码器与基于**欧几里得算法**的译码器，并且在**多元对称信道**已经完成了仿真，本人考虑将他的代码应用于**BPSK调制**后进入**AWGN**信道进行仿真。并且由于**Berlekamp Massey算法**在解递归方程组时效率更高，本人重新编写了基于**BM算法**的译码器。
+
+## 注意
+核心代码已被修改，目前有效代码仅有`main.cpp`,`reedSolomon.cpp`,`reedSolomon.h`与`primitives.h`
 
 ## Attention
 The codes have been modified. The avalable codes now are only **main.cpp**, **reedSolomon.h**  and **primitives.h**.
@@ -12,6 +25,9 @@ The codes have been modified. The avalable codes now are only **main.cpp**, **re
 ## Software Technologies
 * C++
 
+
+------------------------------------------------------
+## 以下工作由Nnoduka Eruchalu完成
 
 ## About RS Encoder/Decoder + Channel Simulation
 #### Description Of Error Correcting Code
@@ -111,7 +127,7 @@ Prob(e_k = a) = |
                 |Ps/(2^m-1)  if a != 0
 ```
 
-#### Simulation
+#### Symmetric Channel Simulation
 I determined the performance of the Reed-Solomon codes for two different
 choices of code parameters: 
 * `m=7, t=60`
@@ -130,16 +146,29 @@ This simulation showed that smaller t-values resulted in a faster rise to an err
 [m7t30.jpg]: https://s3.amazonaws.com/projects.nnoduka.com/reed_solomon/m7t30.jpg "Simulation Plot for m=7, t=30"
 
 
+####
+
 #### References
 Read the following for more background information:
 * [Reed-Solomon Error Correction by C.K.P. Clarke of BBC's R&D](http://downloads.bbc.co.uk/rd/pubs/whp/whp-pdf-files/WHP031.pdf)
 
+------------------------------------------------------
+
+
+## 以下结果由He Guanchen完成
+
+#### BPSK+AWGN Simulation
+
+###### Simulation Plot for Euclidean+Forney decoder:
+![RS_AWGN](./simulation/RS_AWGN.png)
+
+###### Simulation Plot for BM+Forney decoder:
+![RS_AWGN](./simulation/RS_AWGN_BM.png)
 
 
 ## Software Description
 | Module             | Description                                             |
 | ------------------ | ------------------------------------------------------- |
-| `Makefile`         | Creates executable `rs`                                 |
 | `main.cpp`         | Program's main loop that runs simulation                |
 | `primitives.h`     | List of finite field primitive polynomials              |
 | `reedSolomon.h`    | Class interface for RS encoder/decoder object           |
@@ -149,14 +178,13 @@ Read the following for more background information:
 
 
 ## Compiling
-This program includes a `Makefile` for use in compiling.
-To compile use the Makefile, enter `make`
+In **Terminal**, enter `g++ main.cpp reedSolomon.cpp -o main.exe` to create the binary executable file main.exe
 
 
 ## Running
-To run enter `./build/rs`
+In **Terminal**, enter `./main.exe` to run the code.
 
-Plots are generated using C++'s bindings to `gnuplot`, so you will need to have
-that installed.
-If on OSX, MacPorts is your friend...
+
+## 代码修改
+所有函数定义代码全部在 `reedSolomon.cpp` 文件中，`main.cpp`文件用于定义主程序，`reedSolomon.h`文件仅仅用于声明`reedSolomon`对象, `primitives.h`只用于存储本原多项式。
 
